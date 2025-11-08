@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional Virtual Whiteboard</title>
+    
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2980b9;
+            --clear-color: #e74c3c;
+            --bg-light: #f4f7f6;
+            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-light);
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+        }
+
+        .whiteboard-container {
+            width: 95%;
+            max-width: 1400px;
+            margin: 20px auto;
+            background-color: #fff;
+            border-radius: 12px;
+            box-shadow: var(--card-shadow);
+            overflow: hidden;
+            /* Ensures canvas resizes correctly relative to the header */
+            display: flex; 
+            flex-direction: column;
+        }
+
+        header {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background-color: #fff;
+            border-bottom: 1px solid #eee;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 24px;
+            margin-right: 20px;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .tool {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            background-color: #fff;
+            color: #333;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+
+        .tool:hover:not(.active) {
+            background-color: #f0f0f0;
+        }
+
+        .tool.active {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--secondary-color);
+        }
+
+        .clear-btn {
+            background-color: var(--clear-color);
+            color: white;
+            border-color: var(--clear-color);
+        }
+
+        .clear-btn:hover {
+            background-color: #c0392b;
+        }
+
+        input[type="color"], input[type="range"] {
+            height: 34px;
+            padding: 3px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        #whiteboard {
+            display: block;
+            border-top: 1px solid #ddd;
+            background-color: #ffffff; 
+            cursor: crosshair;
+            /* Flex-grow ensures it takes up available vertical space */
+            flex-grow: 1; 
+        }
+    </style>
+</head>
+<body>
+    <div class="whiteboard-container">
+        <header>
+            <h1>Virtual Whiteboard</h1>
+            <div class="toolbar">
+                <button id="penButton" class="tool active">🖊️ Pen</button>
+                <button id="eraserButton" class="tool">🧼 Eraser</button>
+                
+                <label for="colorPicker">Color:</label>
+                <input type="color" id="colorPicker" class="tool" value="#000000">
+
+                <label for="brushSize">Size:</label>
+                <input type="range" id="brushSize" min="1" max="20" value="5" class="tool">
+
+                <button id="clearButton" class="tool clear-btn">🧹 Clear</button>
+            </div>
+        </header>
+        <canvas id="whiteboard"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('whiteboard');
+        const ctx = canvas.getContext('2d');
+
+        // Element selectors
+        const penButton = document.getElementById('penButton');
+        const eraserButton = document.getElementById('eraserButton');
+        const colorPicker = document.getElementById('colorPicker');
+        const brushSizeInput = document.getElementById('brushSize');
+        const clearButton = document.getElementById('clearButton');
+
+        // State variables
+        let painting = false;
+        let isErasing = false;
+        let brushColor = colorPicker.value;
+        let brushSize = parseInt(brushSizeInput.value);
+
+        // Set canvas dimensions dynamically
+        function resizeCanvas() {
+            // Set the canvas size to fill the container's width and a fixed height for simplicity
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            // Set a fixed height, or calculate it based on window height - header height
+            canvas.height = 600; 
+        }
+        resizeCanvas(); 
+        window.addEventListener('resize', resizeCanvas);
+
+
+        // --- Drawing Functions ---
+
+        function startPainting(e) {
+            painting = true;
+            draw(e);
+        }
+
+        function stopPainting() {
+            painting = false;
+            ctx.beginPath(); // End the current path
+        }
+
+        function draw(e) {
+            if (!painting) return;
+
+            // Get the mouse/touch position relative to the canvas
+            const rect = canvas.getBoundingClientRect();
+            // Handle both mouse and touch events
+            const clientX = e.clientX || e.touches[0]?.clientX;
+            const clientY = e.clientY || e.touches[0]?.clientY;
+
+            if (!clientX || !clientY) return;
+
+            const x = clientX - rect.left;
+            const y = clientY - rect.top;
+
+            ctx.lineWidth = brushSize;
+            ctx.lineCap = 'round';
+            
+            // Use 'white' as the color for erasing
+            ctx.strokeStyle = isErasing ? '#ffffff' : brushColor; 
+
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            ctx.beginPath(); // Start a new path from the current position
+            ctx.moveTo(x, y);
+        }
+
+
+        // --- Event Listeners ---
+
+        // Mouse events for drawing
+        canvas.addEventListener('mousedown', startPainting);
+        canvas.addEventListener('mouseup', stopPainting);
+        canvas.addEventListener('mouseout', stopPainting);
+        canvas.addEventListener('mousemove', draw);
+
+        // Touch events for mobile
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault(); // Prevent scrolling on touch
+            startPainting(e);
+        }, { passive: false });
+        canvas.addEventListener('touchend', stopPainting);
+        canvas.addEventListener('touchcancel', stopPainting);
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault(); 
+            draw(e);
+        }, { passive: false });
+
+
+        // Toolbar event listeners
+        penButton.addEventListener('click', () => {
+            isErasing = false;
+            penButton.classList.add('active');
+            eraserButton.classList.remove('active');
+            canvas.style.cursor = 'crosshair';
+        });
+
+        eraserButton.addEventListener('click', () => {
+            isErasing = true;
+            eraserButton.classList.add('active');
+            penButton.classList.remove('active');
+            canvas.style.cursor = 'cell'; // Change cursor for visual cue
+        });
+
+        colorPicker.addEventListener('input', (e) => {
+            brushColor = e.target.value;
+            // Switch back to pen mode when color is changed
+            isErasing = false;
+            penButton.classList.add('active');
+            eraserButton.classList.remove('active');
+        });
+
+        brushSizeInput.addEventListener('input', (e) => {
+            brushSize = parseInt(e.target.value);
+        });
+
+        clearButton.addEventListener('click', () => {
+            // Clear the entire canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        });
+    </script>
+</body>
+</html>
